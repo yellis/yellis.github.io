@@ -1,0 +1,33 @@
+{
+    "links": [
+      { "id": 1, "type": "LinkedIn",      "desc": "LinkedIn",       "title": "LinkedIn", "url": "https://www.linkedin.com/in/yaakovellis/" },
+      { "id": 2, "type": "Twitter",       "desc": "Twitter",        "title": "@yaakov", "url": "https://twitter.com/yaakov" },
+      { "id": 3, "type": "GitHub",        "desc": "GitHub",         "title": "yellis", "url": "https://github.com/yellis" },
+      { "id": 4, "type": "Stack-Overflow","desc": "Stack Overflow", "title": "User 51", "url": "https://stackoverflow.com/users/51/yaakov-ellis" },
+      { "id": 5, "type": "Stack-Overflow","desc": "Meta Stack Exchange", "title": "User 41", "url": "https://meta.stackexchange.com/users/41/yaakov-ellis" },
+      { "id": 6, "type": "Medium",        "desc": "Medium",         "title": "@yaakov", "url": "https://medium.com/@yaakov" },
+      { "id": 7, "type": "Envelope",      "desc": "Envelope",       "title": "yellis@gmail.com", "url": "mailto:yellis@gmail.com" }
+
+    ],
+    "blogPosts": [
+      { 
+        "id": 3,
+        "url": "https://medium.com/hackernoon/how-to-constructively-read-a-spec-fac917f58893", 
+        "title": "How to Constructively Read a Spec", 
+        "summary": "When you first think about it, reading a spec is not something that sounds like it should be so complicated. And indeed, reading a spec the wrong way is an extremely uncomplicated process." 
+      },
+      { 
+        "id": 2,
+        "url": "https://medium.com/@yaakov/how-to-estimate-your-projects-like-a-boss-e533944e7ca4", 
+        "title": "How to Estimate Your Projects Like a Boss",
+        "summary": "So you have the functional requirements for your project in front of you (right?), all of your questions have been answered, edge cases have been defined, and you are ready to get to work. And then you are asked for a reasonable estimate of when you will be able to deliver. Is it even possible to give an honest answer that has a shot at being on target? With the right preparation, I think that this can be achieved."
+      },
+      { 
+        "id": 1,
+        "url": "https://medium.com/@yaakov/project-management-for-developers-101-504e298ee5c7", 
+        "title": "Project Management for Developers 101",
+        "summary": "Hitting estimates and budgets while writing quality software that fulfills all of its requirements is a hard problem. Though I do not claim to know what will work for everyone, I do know what has worked for me in the past. Hopefully this will be helpful to someone else out there."
+      }
+    ]
+  }
+  

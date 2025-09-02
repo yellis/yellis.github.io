@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מבחן דפ"ר אינטראקטיבי מורחב</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Using a common font that supports Hebrew well */
+        @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Assistant', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+        }
+        /* Custom styles for the answer buttons */
+        .answer-btn {
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-height: 80px;
+        }
+        .answer-btn:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .answer-btn.correct {
+            background-color: #22c55e !important; /* Green-500 */
+            color: white !important;
+            border-color: #16a34a !important;
+        }
+        .answer-btn.incorrect {
+            background-color: #ef4444 !important; /* Red-500 */
+            color: white !important;
+            border-color: #dc2626 !important;
+        }
+        .answer-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        /* Custom styles for timer progress bar */
+        #timer-progress {
+            transition: width 1s linear;
+        }
+        .section-btn.active {
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+            font-weight: bold;
+        }
+        /* Styles for SVGs in questions and answers */
+        .question-svg-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        .question-svg, .answer-svg {
+            width: 50px;
+            height: 50px;
+        }
+        .answer-btn svg {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen text-gray-800">
+
+    <div id="quiz-container" class="w-full max-w-3xl mx-auto p-4 sm:p-6 md:p-8">
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">סימולציית מבחן פסיכוטכני</h1>
+            <p class="text-lg text-gray-600 mb-8">בחר/י את מצב התרגול הרצוי.</p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                 <button id="start-full-test-btn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105">
+                    התחל מבחן מלא חדש
+                </button>
+                 <button id="start-advanced-review-btn" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105">
+                    התחל תרגול מתקדם
+                </button>
+            </div>
+           
+            <!-- Resume Prompt -->
+            <div id="resume-prompt" class="hidden mt-6 p-4 bg-yellow-100 border border-yellow-300 rounded-lg">
+                <p class="text-gray-800">נראה שיש לך מבחן שהתחלת. תרצה/י להמשיך מהיכן שהפסקת?</p>
+                <div class="mt-4">
+                    <button id="resume-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg mr-2">כן, המשך</button>
+                    <button id="start-new-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">לא, התחל חדש</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Screen (hidden by default) -->
+        <div id="quiz-screen" class="hidden">
+            <div class="bg-white p-6 rounded-xl shadow-lg relative">
+                 <!-- Pause Overlay -->
+                <div id="pause-overlay" class="hidden absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center text-white z-10 rounded-xl">
+                    <h2 class="text-4xl font-bold mb-4">המבחן מושהה</h2>
+                    <p id="paused-time-info" class="text-xl mb-8"></p>
+                    <button id="resume-btn-overlay" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-12 rounded-lg text-xl">המשך</button>
+                </div>
+
+                <!-- Section Navigation -->
+                <div id="section-nav" class="flex flex-wrap justify-center gap-2 mb-4 border-b pb-4">
+                    <!-- Section buttons will be injected here by JavaScript -->
+                </div>
+
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-y-2">
+                    <div id="question-counter" class="text-md sm:text-lg font-semibold text-gray-700"></div>
+                    <div id="score-display" class="text-md sm:text-lg font-semibold text-green-600"></div>
+                    <div id="total-timer-display" class="text-md sm:text-lg font-semibold text-gray-500"></div>
+                    <div id="timer" class="text-md sm:text-lg font-bold text-blue-600"></div>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 mb-6">
+                    <div id="timer-progress" class="bg-blue-600 h-2.5 rounded-full" style="width: 100%"></div>
+                </div>
+                <div id="question-text" class="text-xl text-center font-semibold text-gray-800 mb-6 min-h-[100px]"></div>
+                <div id="answers-container" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+
+                <!-- Explanation Section -->
+                <div id="explanation-container" class="hidden mt-4 p-4 bg-gray-100 border-r-4 border-blue-500 rounded">
+                    <h3 class="font-bold text-gray-800">הסבר:</h3>
+                    <p id="explanation-text" class="text-gray-700"></p>
+                </div>
+                
+                <!-- Controls -->
+                <div class="mt-6 flex justify-between items-center">
+                    <div>
+                        <button id="show-answer-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg">
+                            הצג תשובה
+                        </button>
+                         <button id="skip-question-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg mr-2">
+                            דלג
+                        </button>
+                    </div>
+                    <div>
+                         <button id="prev-question-btn" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg">
+                            השאלה הקודמת
+                        </button>
+                        <button id="pause-btn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg mx-2">
+                            השהה
+                        </button>
+                        <button id="next-question-btn" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">
+                            השאלה הבאה
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Screen (hidden by default) -->
+        <div id="results-screen" class="hidden text-center bg-white p-8 rounded-xl shadow-lg">
+            <h2 class="text-3xl font-bold text-gray-900 mb-4">הבחינה הסתיימה!</h2>
+            <p class="text-xl text-gray-700 mb-2">התוצאה שלך היא:</p>
+            <p id="score-text" class="text-5xl font-bold text-blue-600 mb-8"></p>
+            <button id="restart-btn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-lg text-xl transition-transform transform hover:scale-105">
+                חזור למסך הראשי
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const startScreen = document.getElementById('start-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const resultsScreen = document.getElementById('results-screen');
+        const startFullTestBtn = document.getElementById('start-full-test-btn');
+        const startAdvancedReviewBtn = document.getElementById('start-advanced-review-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const sectionNav = document.getElementById('section-nav');
+        const questionCounter = document.getElementById('question-counter');
+        const timerDisplay = document.getElementById('timer');
+        const totalTimerDisplay = document.getElementById('total-timer-display');
+        const timerProgress = document.getElementById('timer-progress');
+        const questionText = document.getElementById('question-text');
+        const answersContainer = document.getElementById('answers-container');
+        const scoreDisplay = document.getElementById('score-display');
+        const scoreText = document.getElementById('score-text');
+        const showAnswerBtn = document.getElementById('show-answer-btn');
+        const skipQuestionBtn = document.getElementById('skip-question-btn');
+        const prevQuestionBtn = document.getElementById('prev-question-btn');
+        const nextQuestionBtn = document.getElementById('next-question-btn');
+        const explanationContainer = document.getElementById('explanation-container');
+        const explanationText = document.getElementById('explanation-text');
+        const resumePrompt = document.getElementById('resume-prompt');
+        const resumeBtn = document.getElementById('resume-btn');
+        const startNewBtn = document.getElementById('start-new-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const pauseOverlay = document.getElementById('pause-overlay');
+        const resumeBtnOverlay = document.getElementById('resume-btn-overlay');
+        const pausedTimeInfo = document.getElementById('paused-time-info');
+        
+        let SAVE_KEY = 'daparTestProgress_v5';
+
+        // --- Question Banks ---
+
+        const fullTestQuestions = [
+            // Verbal Reasoning - Analogies (1-15) - NEW
+            { type: "אנלוגיות", question: "לילה : יום", options: ["ירח : כוכב", "חורף : קיץ", "ענן : גשם", "אש : חום"], correctAnswer: "חורף : קיץ", explanation: "לילה ויום הם הפכים המשלימים מחזור של 24 שעות, כשם שחורף וקיץ הם הפכים המשלימים מחזור של שנה." },
+            { type: "אנלוגיות", question: "נגר : עץ", options: ["אופה : לחם", "סנדלר : נעל", "חייט : בד", "צייר : מכחול"], correctAnswer: "חייט : בד", explanation: "נגר משתמש בעץ כחומר גלם, כשם שחייט משתמש בבד כחומר גלם. התשובות האחרות מתארות תוצר סופי או כלי עבודה." },
+            { type: "אנלוגיות", question: "מטבח : בישול", options: ["חדר שינה : שינה", "סלון : טלוויזיה", "מקלחת : מים", "גינה : פרח"], correctAnswer: "חדר שינה : שינה", explanation: "מטבח הוא המקום המיועד לפעולת הבישול, כשם שחדר שינה הוא המקום המיועד לפעולת השינה." },
+            { type: "אנלוגיות", question: "זרע : צמח", options: ["ביצה : אפרוח", "זחל : פרפר", "שניהם נכונים", "אף אחד לא נכון"], correctAnswer: "שניהם נכונים", explanation: "זרע מתפתח לצמח, כשם שביצה מתפתחת לאפרוח וזחל מתפתח לפרפר. כל האפשרויות מתארות שלב מוקדם שמתפתח ליצור בוגר." },
+            { type: "אנלוגיות", question: "צמא : מים", options: ["רעב : מזון", "קור : בגד", "עייפות : מיטה", "כל התשובות נכונות"], correctAnswer: "כל התשובות נכונות", explanation: "מים מרווים צמא, מזון משביע רעב, בגד מגן מקור ומיטה מפיגה עייפות. כל הזוגות מתארים צורך והפתרון הישיר לו." },
+            { type: "אנלוגיות", question: "מנצח : תזמורת", options: ["במאי : סרט", "קפטן : קבוצה", "מנהל : חברה", "גנרל : צבא"], correctAnswer: "קפטן : קבוצה", explanation: "מנצח מוביל קבוצת אנשים (תזמורת) בזמן אמת להשגת מטרה משותפת. הקשר הדומה ביותר הוא קפטן המוביל קבוצת ספורט בזמן המשחק." },
+            { type: "אנלוגיות", question: "ללחוש : לדבר", options: ["לזחול : ללכת", "לגעת : להרגיש", "לראות : להביט", "לצחוק : לחייך"], correctAnswer: "לזחול : ללכת", explanation: "לחישה היא צורת דיבור חלשה/מוקדמת, כשם שזחילה היא צורת הליכה איטית/מוקדמת." },
+            { type: "אנלוגיות", question: "שפה : מילים", options: ["גוף : איברים", "מתמטיקה : מספרים", "מוזיקה : תווים", "כל התשובות נכונות"], correctAnswer: "כל התשובות נכונות", explanation: "שפה מורכבת מאבני יסוד שהן מילים. באופן דומה, גוף מורכב מאיברים, מתמטיקה ממספרים ומוזיקה מתווים." },
+            { type: "אנלוגיות", question: "אי : ים", options: ["נווה מדבר : מדבר", "עץ : יער", "בית : עיר", "כוכב : גלקסיה"], correctAnswer: "נווה מדבר : מדבר", explanation: "אי הוא שטח יבשה המוקף כולו בים, כשם שנווה מדבר הוא שטח עם מים וצמחייה המוקף כולו במדבר." },
+            { type: "אנלוגיות", question: "לפחד : להבעית", options: ["לכעוס : להרגיז", "לאהוב : לחבב", "לרצות : לחשוק", "לישון : לנמנם"], correctAnswer: "לכעוס : להרגיז", explanation: "להבעית פירושו לגרום למישהו אחר לפחד. להרגיז פירושו לגרום למישהו אחר לכעוס. זהו קשר של גרימה." },
+            { type: "אנלוגיות", question: "פרק : ספר", options: ["מערכה : מחזה", "שיר : אלבום", "סצנה : סרט", "כל התשובות נכונות"], correctAnswer: "כל התשובות נכונות", explanation: "פרק הוא חלק מתוך יצירה שלמה (ספר), כשם שמערכה היא חלק ממחזה, שיר הוא חלק מאלבום וסצנה היא חלק מסרט." },
+            { type: "אנלוגיות", question: "מסגרת : תמונה", options: ["חוף : ים", "כריכה : ספר", "קליפה : פרי", "שמיים : ארץ"], correctAnswer: "חוף : ים", explanation: "מסגרת מקיפה תמונה, כשם שחוף מקיף ים." },
+            { type: "אנלוגיות", question: "רעל : מוות", options: ["תרופה : החלמה", "אוכל : שובע", "לימוד : ידע", "עבודה : כסף"], correctAnswer: "תרופה : החלמה", explanation: "רעל יכול לגרום לתוצאה של מוות (תוצאה שלילית), כשם שתרופה יכולה לגרום לתוצאה של החלמה (תוצאה חיובית). הקשר הוא של סיבה ותוצאה עם קונוטציה." },
+            { type: "אנלוגיות", question: "סקרנות : לדעת", options: ["שאפתנות : להצליח", "עייפות : לישון", "רעב : לאכול", "פחד : לברוח"], correctAnswer: "שאפתנות : להצליח", explanation: "סקרנות היא הרצון/הדחף לדעת. שאפתנות היא הרצון/הדחף להצליח. התשובות האחרות מתארות צורך פיזי והמענה לו." },
+            { type: "אנלוגיות", question: "כביש : אספלט", options: ["בית : לבנים", "ספר : נייר", "בגד : בד", "שביל : אדמה"], correctAnswer: "שביל : אדמה", explanation: "כביש עשוי מאספלט, חומר מעובד. שביל עשוי מאדמה, חומר טבעי. הקשר הוא של דרך והחומר ממנו היא עשויה, עם הבחנה בין טבעי למלאכותי." },
+
+            // Verbal Reasoning - Sentence Completion (16-30) - NEW
+            { type: "השלמת משפטים", question: "הסרט זכה לביקורות --------, ולכן קשה היה -------- אם כדאי לצפות בו.", options: ["מצוינות / להחליט", "סותרות / להחליט", "גרועות / לדעת", "ארוכות / להבין"], correctAnswer: "סותרות / להחליט", explanation: "ביקורות סותרות (חלקן טובות וחלקן רעות) מקשות על קבלת החלטה." },
+            { type: "השלמת משפטים", question: "-------- מאמציו הרבים, הפרויקט --------.", options: ["בזכות / הצליח", "למרות / נכשל", "בגלל / התקדם", "שניהם א' ו-ב' נכונים"], correctAnswer: "שניהם א' ו-ב' נכונים", explanation: "שתי האפשרויות הגיוניות: 'בזכות מאמציו הפרויקט הצליח' (סיבה ותוצאה) ו'למרות מאמציו הפרויקט נכשל' (ניגוד)." },
+            { type: "השלמת משפטים", question: "המורה -------- את התלמיד על התנהגותו, אך גם -------- על שיפור ציוניו.", options: ["שיבחה / כעסה", "נזפה / שיבחה", "הענישה / התעלמה", "שאלה / ענתה"], correctAnswer: "נזפה / שיבחה", explanation: "המילה 'אך' מצביעה על ניגוד. הגיוני שהמורה נזפה על ההתנהגות (שלילי) אך שיבחה על הציונים (חיובי)." },
+            { type: "השלמת משפטים", question: "מחירי הדירות -------- כל כך, עד שצעירים רבים -------- לרכוש דירה.", options: ["ירדו / מתקשים", "עלו / מתקשים", "התייצבו / ממהרים", "צנחו / נמנעים"], correctAnswer: "עלו / מתקשים", explanation: "עליית מחירים היא הסיבה לקושי ברכישת דירה." },
+            { type: "השלמת משפטים", question: "התחזית הבטיחה יום שמשי, -------- בפועל ירד גשם --------.", options: ["ואכן / קל", "לכן / חזק", "אולם / שוטף", "כצפוי / זלעפות"], correctAnswer: "אולם / שוטף", explanation: "המילה 'אולם' מציינת ניגוד בין התחזית (שמש) למציאות (גשם)." },
+            { type: "השלמת משפטים", question: "חקירת המשטרה הייתה -------- ומעמיקה, אך -------- לא נמצאו ראיות חדשות.", options: ["שטחית / לכן", "יסודית / למרבה הצער", "קצרה / כצפוי", "מוצלחת / כמובן"], correctAnswer: "יסודית / למרבה הצער", explanation: "יש ניגוד בין יסודיות החקירה לבין חוסר התוצאות, ולכן 'למרבה הצער' מתאים." },
+            { type: "השלמת משפטים", question: "הטענות שהעלה היו -------- כל כך, עד שאיש בקהל לא --------.", options: ["משכנעות / השתכנע", "מגוחכות / האמין לו", "הגיוניות / התווכח", "מבולבלות / הבין"], correctAnswer: "מגוחכות / האמין לו", explanation: "אם טענות הן מגוחכות, התוצאה הטבעית היא שאנשים לא יאמינו להן." },
+            { type: "השלמת משפטים", question: "עקב הביקוש הרב, הכרטיסים להופעה --------, ורבים --------.", options: ["נותרו / שמחו", "אזלו במהירות / התאכזבו", "הוזלו / קנו", "נמכרו / ויתרו"], correctAnswer: "אזלו במהירות / התאכזבו", explanation: "ביקוש רב גורם לכך שהכרטיסים אוזלים מהר, מה שמוביל לאכזבה בקרב אלו שלא הספיקו לקנות." },
+            { type: "השלמת משפטים", question: "הנוף מפסגת ההר היה --------, והמטיילים הרגישו שהמאמץ --------.", options: ["מאכזב / היה מיותר", "עוצר נשימה / השתלם", "רגיל / היה קשה", "מונוטוני / היה ארוך"], correctAnswer: "עוצר נשימה / השתלם", explanation: "נוף עוצר נשימה גורם לתחושה שהמאמץ להגיע אליו היה כדאי." },
+            { type: "השלמת משפטים", question: "לא רק שהוא -------- להגיע בזמן, אלא שהוא גם -------- את הציוד הדרוש.", options: ["איחר / שכח", "הצליח / הביא", "שכח / זכר", "ניסה / איבד"], correctAnswer: "איחר / שכח", explanation: "'לא רק... אלא גם...' מחבר שני דברים שליליים (או חיוביים). איחור ושכחה הם שני דברים שליליים שמשלימים זה את זה." },
+            { type: "השלמת משפטים", question: "הדיאטה החדשה -------- כה -------- עד שרבים התייאשו ממנה לאחר ימים ספורים.", options: ["הייתה / קלה", "נחשבה / בריאה", "הייתה / קפדנית", "הומלצה / פשוטה"], correctAnswer: "הייתה / קפדנית", explanation: "דיאטה קפדנית ומחמירה היא סיבה הגיונית לייאוש מהיר." },
+            { type: "השלמת משפטים", question: "החברה השיקה מוצר חדשני, אך -------- לציפיות, הוא -------- בשוק.", options: ["בהתאם / הצליח", "בניגוד / נכשל", "כמו / הצטיין", "למרות / נמכר"], correctAnswer: "בניגוד / נכשל", explanation: "המילה 'אך' מצביעה על ניגוד. הניגוד לציפיות ממוצר חדשני הוא כישלון בשוק." },
+            { type: "השלמת משפטים", question: "הספורטאי התאמן במשך שנים, -------- שהגיע לאולימפיאדה, הוא --------.", options: ["וזכה במדליה", "אך כאשר / נכשל", "ולכן / פרש", "למרות / ניצח"], correctAnswer: "אך כאשר / נכשל", explanation: "המשפט יוצר ציפייה להצלחה, והמילה 'אך' מכניסה ניגוד - כישלון דווקא ברגע האמת." },
+            { type: "השלמת משפטים", question: "הפוליטיקאי -------- את הבטחותיו, ולכן -------- הציבור בו ירד.", options: ["קיים / האמון", "הפר / האמון", "שכח / הכעס", "זכר / העניין"], correctAnswer: "הפר / האמון", explanation: "הפרת הבטחות היא סיבה ישירה לירידת אמון הציבור." },
+            { type: "השלמת משפטים", question: "היה זה יום -------- במיוחד, לא רק שהשמש זרחה, אלא גם נשבה רוח --------.", options: ["סוער / חזקה", "נעים / קרירה", "קר / חמה", "חם / קפואה"], correctAnswer: "נעים / קרירה", explanation: "'לא רק... אלא גם...' מחבר שני דברים חיוביים. שמש ורוח קרירה יוצרים יחד יום נעים." },
+
+            // Quantitative Reasoning - Number Series (31-45) - NEW
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 3, 7, 11, 15, ?", options: ["18", "19", "20", "21"], correctAnswer: "19", explanation: "הסדרה עולה בקפיצות קבועות של 4." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 1, 3, 9, 27, ?", options: ["54", "63", "81", "72"], correctAnswer: "81", explanation: "כל מספר מוכפל ב-3." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 1, 4, 2, 8, 3, 12, 4, ?", options: ["5", "16", "20", "8"], correctAnswer: "16", explanation: "זו סדרה כפולה. סדרה אחת היא המספרים העולים (1,2,3,4) והשנייה היא כפולות של 4 (4,8,12,?). המספר הבא הוא 16." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 50, 48, 45, 41, 36, ?", options: ["30", "31", "32", "29"], correctAnswer: "30", explanation: "ההפרש גדל ב-1 בכל פעם: -2, -3, -4, -5, -6." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 2, 2, 4, 12, 48, ?", options: ["120", "192", "240", "96"], correctAnswer: "240", explanation: "המספר מוכפל בסדרה עולה: x1, x2, x3, x4, x5." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 6, 11, 21, 36, 56, ?", options: ["81", "71", "91", "61"], correctAnswer: "81", explanation: "ההפרשים בין המספרים הם סדרה של כפולות 5: +5, +10, +15, +20, +25." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 9, 16, 25, 36, 49, ?", options: ["56", "64", "72", "81"], correctAnswer: "64", explanation: "הסדרה מורכבת מהריבועים של מספרים עולים: 3^2, 4^2, 5^2, 6^2, 7^2, 8^2." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 10, 20, 15, 30, 25, 50, ?", options: ["45", "40", "55", "60"], correctAnswer: "45", explanation: "החוקיות היא: כפול 2, פחות 5, כפול 2, פחות 5..." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 88, 86, 90, 84, 92, ?", options: ["82", "94", "90", "80"], correctAnswer: "82", explanation: "החוקיות היא: -2, +4, -6, +8, -10." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 1, 8, 27, 64, ?", options: ["81", "100", "125", "216"], correctAnswer: "125", explanation: "הסדרה מורכבת מהחזקה השלישית של מספרים עולים: 1^3, 2^3, 3^3, 4^3, 5^3." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 4, 5, 7, 11, 19, ?", options: ["27", "31", "35", "39"], correctAnswer: "35", explanation: "ההפרשים מוכפלים ב-2: +1, +2, +4, +8, +16." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 101, 91, 82, 74, 67, ?", options: ["61", "60", "59", "62"], correctAnswer: "61", explanation: "ההפרשים הם מספרים עוקבים בסדר יורד: -10, -9, -8, -7, -6." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 2, 5, 10, 17, 26, ?", options: ["35", "36", "37", "38"], correctAnswer: "37", explanation: "ההפרשים הם מספרים אי-זוגיים עוקבים: +3, +5, +7, +9, +11." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 5, 6, 8, 11, 15, ?", options: ["20", "21", "19", "22"], correctAnswer: "20", explanation: "ההפרשים עולים ב-1: +1, +2, +3, +4, +5." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 360, 180, 60, 15, ?", options: ["5", "3", "10", "1"], correctAnswer: "3", explanation: "המספר מחולק בסדרה עולה: חלקי 2, חלקי 3, חלקי 4, חלקי 5." },
+
+            // Quantitative Reasoning - Word Problems (46-60) - NEW
+            { type: "בעיות מילוליות", question: "אם 3 עפרונות עולים 12 שקלים, כמה יעלו 7 עפרונות?", options: ["24 שקלים", "28 שקלים", "35 שקלים", "21 שקלים"], correctAnswer: "28 שקלים", explanation: "מחיר עיפרון אחד הוא 12/3 = 4 שקלים. מחיר 7 עפרונות הוא 7*4 = 28 שקלים." },
+            { type: "בעיות מילוליות", question: "רכבת יוצאת לדרך בשעה 08:00 ומגיעה ליעדה בשעה 11:30. אם הרכבת נסעה במהירות קבועה של 100 קמ\"ש, מה המרחק שעברה?", options: ["300 ק\"מ", "350 ק\"מ", "400 ק\"מ", "250 ק\"מ"], correctAnswer: "350 ק\"מ", explanation: "הרכבת נסעה במשך 3.5 שעות. המרחק הוא מהירות כפול זמן: 100 * 3.5 = 350 ק\"מ." },
+            { type: "בעיות מילוליות", question: "בכיתה יש 15 בנים ו-20 בנות. מהו אחוז הבנים בכיתה?", options: ["35%", "42.8%", "45%", "50%"], correctAnswer: "42.8%", explanation: "סך הכל יש 35 תלמידים בכיתה. אחוז הבנים הוא (15/35) * 100, שזה בערך 42.8%." },
+            { type: "בעיות מילוליות", question: "מחירו של ספר התייקר ב-10% ולאחר מכן הוזל ב-10%. מה מחירו הסופי ביחס למחיר ההתחלתי?", options: ["גבוה יותר", "נמוך יותר", "זהה", "לא ניתן לדעת"], correctAnswer: "נמוך יותר", explanation: "נניח שהמחיר היה 100. אחרי עלייה של 10% הוא 110. הנחה של 10% מ-110 היא 11. המחיר הסופי הוא 110-11=99, שהוא נמוך מהמחיר ההתחלתי." },
+            { type: "בעיות מילוליות", question: "3 ברזים ממלאים בריכה ב-6 שעות. תוך כמה זמן 9 ברזים ימלאו את אותה הבריכה?", options: ["שעתיים", "3 שעות", "שעה", "4 שעות"], correctAnswer: "שעתיים", explanation: "זו בעיית הספק (יחס הפוך). אם מספר הברזים גדל פי 3, הזמן יקטן פי 3. 6/3 = 2 שעות." },
+            { type: "בעיות מילוליות", question: "לרוני יש 500 שקלים. היא קנתה חולצה ב-120 שקלים ומכנסיים שעלו פי 1.5 מהחולצה. כמה כסף נשאר לה?", options: ["200 שקלים", "250 שקלים", "180 שקלים", "150 שקלים"], correctAnswer: "200 שקלים", explanation: "מחיר המכנסיים הוא 120 * 1.5 = 180 שקלים. סך הקנייה הוא 120+180=300 שקלים. נשאר לה 500-300=200 שקלים." },
+            { type: "בעיות מילוליות", question: "ממוצע הגבהים של 3 אנשים הוא 180 ס\"מ. אם גובהו של אחד מהם הוא 170 ס\"מ, ושל השני 190 ס\"מ, מה גובהו של השלישי?", options: ["175 ס\"מ", "180 ס\"מ", "185 ס\"מ", "190 ס\"מ"], correctAnswer: "180 ס\"מ", explanation: "סך הגבהים של שלושתם הוא 3 * 180 = 540 ס\"מ. סכום הגבהים של השניים הידועים הוא 170+190=360 ס\"מ. גובהו של השלישי הוא 540-360=180 ס\"מ." },
+            { type: "בעיות מילוליות", question: "לדנה יש 24 עוגיות. היא אכלה רבע מהן ונתנה שליש מהנותרות לאחיה. כמה עוגיות נשארו לה?", options: ["10", "12", "14", "8"], correctAnswer: "12", explanation: "דנה אכלה 24/4 = 6 עוגיות. נותרו לה 18. היא נתנה לאחיה 18/3 = 6 עוגיות. נשארו לה 18-6=12 עוגיות." },
+            { type: "בעיות מילוליות", question: "היקפו של ריבוע הוא 36 ס\"מ. מה שטחו?", options: ["36 סמ\"ר", "64 סמ\"ר", "81 סמ\"ר", "144 סמ\"ר"], correctAnswer: "81 סמ\"ר", explanation: "אורך צלע הריבוע הוא 36/4 = 9 ס\"מ. שטח הריבוע הוא 9*9 = 81 סמ\"ר." },
+            { type: "בעיות מילוליות", question: "סוחר קנה 10 כיסאות ב-50 שקלים לכיסא. הוא מכר 6 מהם ב-80 שקלים לכיסא ואת השאר ב-40 שקלים לכיסא. מה הרווח או ההפסד הכולל שלו?", options: ["רווח של 140 שקלים", "רווח של 120 שקלים", "הפסד של 20 שקלים", "לא רווח ולא הפסד"], correctAnswer: "רווח של 140 שקלים", explanation: "ההשקעה הכוללת היא 10*50=500 שקלים. ההכנסה היא (6*80) + (4*40) = 480 + 160 = 640 שקלים. הרווח הוא 640-500 = 140 שקלים." },
+            { type: "בעיות מילוליות", question: "יונתן מבוגר מאחיו ב-4 שנים. סכום הגילאים שלהם הוא 20. בן כמה יונתן?", options: ["8", "10", "12", "14"], correctAnswer: "12", explanation: "נסמן את גיל האח ב-x, וגיל יונתן ב-x+4. המשוואה היא x + (x+4) = 20. פתרונה נותן x=8. גילו של יונתן הוא 8+4=12." },
+            { type: "בעיות מילוליות", question: "מטוס טס 1,200 ק\"מ ב-3 שעות. לאחר מכן האט את מהירותו ב-100 קמ\"ש וטס עוד שעה. מה המרחק הכולל שעבר?", options: ["1500 ק\"מ", "1600 ק\"מ", "1400 ק\"מ", "1800 ק\"מ"], correctAnswer: "1500 ק\"מ", explanation: "מהירותו הראשונית הייתה 1200/3 = 400 קמ\"ש. מהירותו החדשה הייתה 300 קמ\"ש. בשעה הנוספת הוא עבר 300 ק\"מ. סך המרחק הוא 1200+300=1500 ק\"מ." },
+            { type: "בעיות מילוליות", question: "בקופסה יש כדורים אדומים, כחולים וירוקים. ההסתברות להוציא כדור אדום היא 1/2, וההסתברות להוציא כדור כחול היא 1/3. מה ההסתברות להוציא כדור ירוק?", options: ["1/4", "1/5", "1/6", "1/8"], correctAnswer: "1/6", explanation: "סך ההסתברויות הוא 1. ההסתברות לאדום או כחול היא 1/2 + 1/3 = 5/6. ההסתברות לירוק היא 1 - 5/6 = 1/6." },
+            { type: "בעיות מילוליות", question: "שני רצים יצאו מאותה נקודה בכיוונים מנוגדים. מהירות הראשון 8 קמ\"ש ומהירות השני 12 קמ\"ש. מה יהיה המרחק ביניהם כעבור שעה וחצי?", options: ["20 ק\"מ", "25 ק\"מ", "30 ק\"מ", "40 ק\"מ"], correctAnswer: "30 ק\"מ", explanation: "הם מתרחקים זה מזה במהירות משולבת של 8+12 = 20 קמ\"ש. כעבור 1.5 שעות, המרחק יהיה 20 * 1.5 = 30 ק\"מ." },
+            { type: "בעיות מילוליות", question: "מהו המספר ש-20% ממנו הם 50?", options: ["100", "200", "250", "500"], correctAnswer: "250", explanation: "אם 20% הם 50, אז 100% הם פי 5 יותר. 50 * 5 = 250." },
+            
+            // Figural Reasoning - Shape Series (61-75) with SVG - CORRECTED
+            { type: "סדרות צורניות", 
+              question: `איזו צורה ממשיכה את הסדרה? 
+              <div class='question-svg-container'>
+                <svg class='question-svg' viewBox='0 0 100 100'><path d='M80 50 L20 50 M30 40 L20 50 L30 60' stroke='black' stroke-width='8' fill='none' /></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><path d='M50 80 L50 20 M40 30 L50 20 L60 30' stroke='black' stroke-width='8' fill='none' /></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><path d='M20 50 L80 50 M70 40 L80 50 L70 60' stroke='black' stroke-width='8' fill='none' /></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><path d='M50 20 L50 80 M40 70 L50 80 L60 70' stroke='black' stroke-width='8' fill='none' /></svg>
+                ?
+              </div>`, 
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><path d='M80 50 L20 50 M30 40 L20 50 L30 60' stroke='black' stroke-width='8' fill='none' /></svg>`, 
+                `<svg class='answer-svg' viewBox='0 0 100 100'><path d='M50 80 L50 20 M40 30 L50 20 L60 30' stroke='black' stroke-width='8' fill='none' /></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><path d='M20 50 L80 50 M70 40 L80 50 L70 60' stroke='black' stroke-width='8' fill='none' /></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><path d='M50 20 L50 80 M40 70 L50 80 L60 70' stroke='black' stroke-width='8' fill='none' /></svg>`
+              ], 
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><path d='M80 50 L20 50 M30 40 L20 50 L30 60' stroke='black' stroke-width='8' fill='none' /></svg>`, 
+              explanation: "החץ מסתובב 90 מעלות עם כיוון השעון בכל פעם. אחרי שהוא פונה למטה, הוא חוזר לפנות שמאלה."},
+            { type: "סדרות צורניות", 
+              question: `איזו צורה ממשיכה את הסדרה?
+              <div class='question-svg-container'>
+                <svg class='question-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='20' stroke='black' stroke-width='4' fill='white' /></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='20' stroke='black' stroke-width='4' fill='black' /></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><circle cx='35' cy='50' r='15' stroke='black' stroke-width='4' fill='white' /><circle cx='65' cy='50' r='15' stroke='black' stroke-width='4' fill='white' /></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><circle cx='35' cy='50' r='15' stroke='black' stroke-width='4' fill='black' /><circle cx='65' cy='50' r='15' stroke='black' stroke-width='4' fill='black' /></svg>
+                ?
+              </div>`,
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='25' cy='50' r='12' stroke='black' stroke-width='4' fill='white' /><circle cx='50' cy='50' r='12' stroke='black' stroke-width='4' fill='white' /><circle cx='75' cy='50' r='12' stroke='black' stroke-width='4' fill='white' /></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='25' cy='50' r='12' stroke='black' stroke-width='4' fill='black' /><circle cx='50' cy='50' r='12' stroke='black' stroke-width='4' fill='black' /><circle cx='75' cy='50' r='12' stroke='black' stroke-width='4' fill='black' /></svg>`,
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='25' cy='50' r='12' stroke='black' stroke-width='4' fill='white' /><circle cx='50' cy='50' r='12' stroke='black' stroke-width='4' fill='white' /><circle cx='75' cy='50' r='12' stroke='black' stroke-width='4' fill='white' /></svg>`,
+              explanation: "הסדרה מתחלפת בין עיגולים ריקים למלאים, ומספר העיגולים גדל ב-1 בכל צמד צעדים."},
+            { type: "סדרות צורניות",
+              question: "איזו צורה יוצאת דופן?",
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='20' y='20' width='60' height='60' stroke='black' stroke-width='4' fill='black'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='30' stroke='black' stroke-width='4' fill='blue'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,15 90,85 10,85' stroke='black' stroke-width='4' fill='red'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,10 90,50 50,90 10,50' stroke='black' stroke-width='4' fill='orange'/></svg>`,
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='30' stroke='black' stroke-width='4' fill='blue'/></svg>`,
+              explanation: "כל הצורות הן מצולעים (בעלות צלעות ישרות), פרט לעיגול."},
+            { type: "סדרות צורניות",
+              question: `איזו צורה ממשיכה את הסדרה?
+              <div class='question-svg-container'>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><rect x='25' y='25' width='50' height='50' stroke='black' stroke-width='4' fill='none'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><rect x='25' y='25' width='50' height='50' fill='black'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><rect x='25' y='25' width='50' height='50' stroke='black' stroke-width='4' fill='none'/></svg>
+                ?
+              </div>`,
+              options: [
+                 `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><rect x='25' y='25' width='50' height='50' fill='black'/></svg>`,
+                 `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><rect x='25' y='25' width='50' height='50' stroke='black' stroke-width='4' fill='none'/></svg>`,
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><rect x='25' y='25' width='50' height='50' fill='black'/></svg>`,
+              explanation: "הסדרה מתחלפת לסירוגין בין ריבוע עם ריבוע פנימי שחור לריבוע עם ריבוע פנימי לבן (ריק)."},
+            { type: "סדרות צורניות",
+              question: `איזו צורה משלימה את התבנית?
+              <div class='w-[124px] mx-auto my-2 grid grid-cols-2 gap-2 rounded-md border-2 border-gray-300 p-2'>
+                <svg class='question-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='35' fill='black'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='15' y='15' width='70' height='70' fill='black'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='15' y='15' width='70' height='70' fill='black'/></svg>
+                <div class='flex items-center justify-center border-2 border-dashed border-gray-400 text-3xl text-gray-400 w-[50px] h-[50px]'>?</div>
+              </div>`,
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='35' fill='black'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='15' y='15' width='70' height='70' fill='white' stroke='black' stroke-width='4'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='35' fill='white' stroke='black' stroke-width='4'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='15' y='15' width='70' height='70' fill='black' stroke='white' stroke-width='4'/></svg>`
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='35' fill='black'/></svg>`,
+              explanation: "החוקיות בתבנית היא שהצורות בפינות הנגדיות זהות. לכן, הצורה החסרה זהה לצורה בפינה השמאלית העליונה."
+            },
+            { type: "סדרות צורניות",
+              question: `איזו צורה ממשיכה את הסדרה?
+              <div class='question-svg-container'>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><line x1='10' y1='50' x2='90' y2='50' stroke='black' stroke-width='4' /></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><line x1='50' y1='10' x2='50' y2='90' stroke='black' stroke-width='4' /></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><line x1='10' y1='50' x2='90' y2='50' stroke='black' stroke-width='4' /></svg>
+                ?
+              </div>`,
+              options: [
+                 `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><line x1='50' y1='10' x2='50' y2='90' stroke='black' stroke-width='4' /></svg>`,
+                 `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><line x1='10' y1='90' x2='90' y2='10' stroke='black' stroke-width='4' /></svg>`,
+                 `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/></svg>`,
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/><line x1='50' y1='10' x2='50' y2='90' stroke='black' stroke-width='4' /></svg>`,
+              explanation: "הקו הפנימי משנה כיוון מאופקי לאנכי לסירוגין."},
+            { type: "סדרות צורניות",
+              question: "איזו צורה יוצאת דופן?",
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='30' stroke='black' stroke-width='4' fill='none'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><ellipse cx='50' cy='50' rx='40' ry='25' stroke='black' stroke-width='4' fill='none'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='20' y='20' width='60' height='60' stroke='black' stroke-width='4' fill='none'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><path d='M50 10 C90 10, 90 90, 50 90 C10 90, 10 10, 50 10 Z' stroke='black' stroke-width='4' fill='none'/></svg>`,
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='20' y='20' width='60' height='60' stroke='black' stroke-width='4' fill='none'/></svg>`,
+              explanation: "כל הצורות האחרות מכילות קווים מעוגלים, בעוד הריבוע מורכב רק מקווים ישרים."},
+            { type: "סדרות צורניות",
+              question: `איזו צורה ממשיכה את הסדרה?
+              <div class='question-svg-container'>
+                <svg class='question-svg' viewBox='0 0 100 100'><polygon points='50,15 90,85 10,85' stroke='black' stroke-width='6' fill='none'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='20' y='20' width='60' height='60' stroke='black' stroke-width='6' fill='none'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><polygon points='50,10 90,40 75,90 25,90 10,40' stroke='black' stroke-width='6' fill='none'/></svg>
+                ?
+              </div>`,
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,10 93.3,35 93.3,75 50,100 6.7,75 6.7,35' stroke='black' stroke-width='6' fill='none'/></svg>`, // Hexagon
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='35' stroke='black' stroke-width='6' fill='none'/></svg>`, // Circle
+                `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,10 90,90 10,90' stroke='black' stroke-width='6' fill='none'/></svg>`, // Triangle
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,10 93.3,35 93.3,75 50,100 6.7,75 6.7,35' stroke='black' stroke-width='6' fill='none'/></svg>`,
+              explanation: "בכל שלב, מספר הצלעות של המצולע גדל ב-1. הסדרה היא: משולש (3), ריבוע (4), מחומש (5), ולכן הצורה הבאה היא משושה (6)."},
+            { type: "סדרות צורניות",
+              question: "איזו צורה היא תמונת הראי של הצורה הבאה? <div class='question-svg-container'><svg class='question-svg' viewBox='0 0 100 100'><text x='30' y='70' font-size='60' font-family='Arial'>F</text></svg></div>",
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><text x='30' y='70' font-size='60' font-family='Arial' transform='scale(-1, 1) translate(-100, 0)'>F</text></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><text x='30' y='70' font-size='60' font-family='Arial' transform='rotate(180 50 50)'>F</text></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><text x='30' y='70' font-size='60' font-family='Arial'>E</text></svg>`,
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><text x='30' y='70' font-size='60' font-family='Arial' transform='scale(-1, 1) translate(-100, 0)'>F</text></svg>`,
+              explanation: "זוהי השתקפות המראה של האות F על ציר אנכי."},
+            { type: "סדרות צורניות",
+              question: `איזו צורה ממשיכה את הסדרה?
+              <div class='question-svg-container'>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='15' y='15' width='70' height='70' stroke='black' stroke-width='4' fill='none'/><circle cx='50' cy='50' r='25' stroke='black' stroke-width='4' fill='none' /></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' stroke='black' stroke-width='4' fill='none'/><rect x='30' y='30' width='40' height='40' stroke='black' stroke-width='4' fill='none' /></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='15' y='15' width='70' height='70' stroke='black' stroke-width='4' fill='none'/><circle cx='50' cy='50' r='25' stroke='black' stroke-width='4' fill='none' /></svg>
+                ?
+              </div>`,
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' stroke='black' stroke-width='4' fill='none'/><rect x='30' y='30' width='40' height='40' stroke='black' stroke-width='4' fill='none' /></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' stroke-width='4' fill='none'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' stroke='black' stroke-width='4' fill='none'/></svg>`,
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' stroke='black' stroke-width='4' fill='none'/><rect x='30' y='30' width='40' height='40' stroke='black' stroke-width='4' fill='none' /></svg>`,
+              explanation: "הסדרה מתחלפת לסירוגין בין ריבוע עם עיגול בתוכו, לבין עיגול עם ריבוע בתוכו."},
+            { type: "סדרות צורניות",
+              question: "איזו צורה יוצאת דופן?",
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,10 95,90 5,90' stroke='black' stroke-width='4' fill='none'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,10 80,90 20,90' stroke='black' stroke-width='4' fill='none'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,10 60,90 40,90' stroke='black' stroke-width='4' fill='none'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,10 50,90 10,90' stroke='black' stroke-width='4' fill='none'/></svg>`,
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,10 50,90 10,90' stroke='black' stroke-width='4' fill='none'/></svg>`,
+              explanation: "כל הצורות הן משולשים שווי שוקיים, פרט לצורה האחרונה שהיא משולש ישר זווית."},
+            { type: "סדרות צורניות", 
+              question: `דמיין רצועה של 4 ריבועים המחוברים בשורה:\n
+              <div class='question-svg-container'>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' fill='none' stroke-width='2'/><circle cx='50' cy='50' r='20' fill='black'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' fill='none' stroke-width='2'/><rect x='30' y='30' width='40' height='40' fill='black'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' fill='none' stroke-width='2'/><polygon points='50,30 70,70 30,70' fill='black'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' stroke='black' fill='none' stroke-width='2'/><line x1='30' y1='30' x2='70' y2='70' stroke='black' stroke-width='4'/><line x1='70' y1='30' x2='30' y2='70' stroke='black' stroke-width='4'/></svg>
+              </div>
+              \nאם תקפל את הרצועה לדפנות של קובייה, איזו צורה תהיה מול העיגול?`, 
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><rect x='30' y='30' width='40' height='40' fill='black'/></svg>`, 
+                `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,30 70,70 30,70' fill='black'/></svg>`, 
+                `<svg class='answer-svg' viewBox='0 0 100 100'><line x1='30' y1='30' x2='70' y2='70' stroke='black' stroke-width='4'/><line x1='70' y1='30' x2='30' y2='70' stroke='black' stroke-width='4'/></svg>`,
+              ], 
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><polygon points='50,30 70,70 30,70' fill='black'/></svg>`, 
+              explanation: "כאשר מקפלים רצועה של 4 פאות, הפאה הראשונה (העיגול) תמיד תהיה מול הפאה השלישית (המשולש)."},
+            { type: "סדרות צורניות", 
+              question: "כמה ריבועים יש בשרטוט הבא? <div class='question-svg-container'><svg class='question-svg' style='width:100px; height:100px' viewBox='0 0 30 30'><path d='M0 0 H30 V30 H0 Z M10 0 V30 M20 0 V30 M0 10 H30 M0 20 H30' stroke='black' stroke-width='1' fill='none'/></svg></div>",
+              options: ["9", "10", "13", "14"],
+              correctAnswer: "14", 
+              explanation: "יש 9 ריבועים קטנים (1x1), 4 ריבועים בינוניים (2x2), וריבוע אחד גדול (3x3). סה\"כ 9+4+1=14."},
+            { type: "סדרות צורניות",
+              question: `איזו צורה ממשיכה את הסדרה?
+              <div class='question-svg-container'>
+                <svg class='question-svg' viewBox='0 0 100 100'><path d='M10 50 A 40 40 0 0 1 90 50' stroke='black' stroke-width='4' fill='none'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><path d='M10 50 A 40 40 0 0 1 90 50' stroke='black' stroke-width='4' fill='none' transform='rotate(90 50 50)'/></svg>
+                <svg class='question-svg' viewBox='0 0 100 100'><path d='M10 50 A 40 40 0 0 1 90 50' stroke='black' stroke-width='4' fill='none' transform='rotate(180 50 50)'/></svg>
+                ?
+              </div>`,
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><path d='M10 50 A 40 40 0 0 1 90 50' stroke='black' stroke-width='4' fill='none' transform='rotate(270 50 50)'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><path d='M10 50 A 40 40 0 0 1 90 50' stroke='black' stroke-width='4' fill='none'/></svg>`,
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><path d='M10 50 A 40 40 0 0 1 90 50' stroke='black' stroke-width='4' fill='none' transform='rotate(270 50 50)'/></svg>`,
+              explanation: "הצורה (חצי עיגול) מסתובבת 90 מעלות עם כיוון השעון בכל שלב."},
+            { type: "סדרות צורניות",
+              question: "איזו צורה יוצאת דופן?",
+              options: [
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='yellow' stroke='black' stroke-width='4'/><circle cx='35' cy='35' r='5' fill='black'/><circle cx='65' cy='35' r='5' fill='black'/><path d='M30 65 A 20 20 0 0 0 70 65' stroke='black' stroke-width='4' fill='none'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='yellow' stroke='black' stroke-width='4'/><circle cx='35' cy='35' r='5' fill='black'/><circle cx='65' cy='35' r='5' fill='black'/><path d='M30 70 A 20 20 0 0 1 70 70' stroke='black' stroke-width='4' fill='none'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='yellow' stroke='black' stroke-width='4'/><path d='M30 30 L40 40 M40 30 L30 40' stroke='black' stroke-width='4'/><circle cx='65' cy='35' r='5' fill='black'/><path d='M30 65 A 20 20 0 0 0 70 65' stroke='black' stroke-width='4' fill='none'/></svg>`,
+                `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='yellow' stroke='black' stroke-width='4'/><circle cx='35' cy='35' r='5' fill='black'/><circle cx='65' cy='35' r='5' fill='black'/></svg>`,
+              ],
+              correctAnswer: `<svg class='answer-svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='yellow' stroke='black' stroke-width='4'/><circle cx='35' cy='35' r='5' fill='black'/><circle cx='65' cy='35' r='5' fill='black'/></svg>`,
+              explanation: "לכל שאר הפרצופים יש פה המביע רגש כלשהו, בעוד לפרצוף זה אין פה כלל."},
+
+            // Instructions & Judgment (76-90)
+            { type: "הוראות ושיפוט", question: "אם המילה 'כדור' מכילה את האות ר', לחץ על 'אמת'. אחרת, לחץ על 'שקר' רק אם היום לא יום שלישי.", options: ["אמת", "שקר"], correctAnswer: "אמת", explanation: "המילה 'כדור' אכן מכילה את האות ר', ולכן יש ללחוץ על 'אמת' ללא קשר לשאר התנאים."},
+            { type: "הוראות ושיפוט", question: "קרא את הקטע וענה: 'הדולפין הוא יונק ימי הנחשב לאחת החיות האינטליגנטיות ביותר. הוא חי בלהקות ומתקשר באמצעות מגוון רחב של קולות.' מה ניתן להסיק מהקטע?", options: ["דולפינים הם דגים", "דולפינים חיים לבד", "דולפינים מתקשרים", "דולפינים אינם חכמים"], correctAnswer: "דולפינים מתקשרים", explanation: "הקטע מציין במפורש שדולפינים 'מתקשרים באמצעות מגוון רחב של קולות'."},
+            { type: "הוראות ושיפוט", question: "מטופל עצבני צועק עליך בדלפק. מה תעשה?", options: ["אתעלם ממנו.", "אצעק עליו בחזרה.", "אשאר רגוע ואנסה לעזור.", "אבקש שיעזוב מיד."], correctAnswer: "אשאר רגוע ואנסה לעזור.", explanation: "שמירה על קור רוח ומתן שירות הם ערכים עליונים בתפקיד שירותי."},
+            { type: "הוראות ושיפוט", question: "גילית טעות במסמכים שעמית לעבודה הכין. מה תעשה?", options: ["אתעלם מהטעות.", "אתקן בלי לומר כלום.", "איידע אותו בדיסקרטיות.", "אדווח עליו למנהל."], correctAnswer: "איידע אותו בדיסקרטיות.", explanation: "גישה קולגיאלית ודיסקרטית היא הדרך הנכונה לטפל בטעויות של עמיתים."},
+            { type: "הוראות ושיפוט", question: "המנהל ביקש שתישאר שעה נוספת, ואתה יכול. מהי התגובה הנכונה?", options: ["להישאר ולסייע.", "לסרב כי נגמרו השעות.", "להתלונן על הבקשה.", "לבקש תשלום נוסף מראש."], correctAnswer: "להישאר ולסייע.", explanation: "גמישות ונכונות לעזור הן תכונות מוערכות במקום העבודה."},
+            { type: "הוראות ושיפוט", question: "סדר את המילים הבאות למשפט הגיוני: 'הולך, לבית, התלמיד, הספר'. מה המילה השנייה במשפט?", options: ["הולך", "לבית", "הספר", "התלמיד"], correctAnswer: "הולך", explanation: "המשפט הנכון הוא 'התלמיד הולך לבית הספר'. המילה השנייה היא 'הולך'."},
+            { type: "הוראות ושיפוט", question: "אם 5 גדול מ-3 וגם 2 קטן מ-4, לחץ על 'נכון'. אחרת, לחץ על 'לא נכון'.", options: ["נכון", "לא נכון"], correctAnswer: "נכון", explanation: "שני חלקי המשפט נכונים, ולכן התשובה היא 'נכון'."},
+            { type: "הוראות ושיפוט", question: "אל תלחץ על התשובה 'אדום', אלא אם כן השאלה הזו היא השאלה האחרונה במבחן.", options: ["כחול", "ירוק", "אדום", "צהוב"], correctAnswer: "כחול", explanation: "זו אינה השאלה האחרונה, ולכן אסור ללחוץ על 'אדום'. כל תשובה אחרת תתקבל (באופן היפותטי)."},
+            { type: "הוראות ושיפוט", question: "אתה רואה עמית לוקח ציוד משרדי לביתו. מה תעשה?", options: ["אתעלם, זה לא ענייני.", "אצטרף אליו.", "אדווח למנהל.", "אשאל אותו על כך בשיחה אישית."], correctAnswer: "אשאל אותו על כך בשיחה אישית.", explanation: "גישה ישירה אך לא מתלהמת היא לרוב הפתרון הראשוני הטוב ביותר, לפני הסלמת המצב."},
+            { type: "הוראות ושיפוט", question: "קרא: 'כל הכלבים אוהבים בשר. רק חיות שאוהבות בשר הן טורפות. רקסי הוא כלב.' מה מהבאים נכון בהכרח?", options: ["רקסי אינו טורף.", "כל הטורפים הם כלבים.", "רקסי הוא טורף.", "חיות אחרות אינן טורפות."], correctAnswer: "רקסי הוא טורף.", explanation: "אם רקסי הוא כלב, והכלבים אוהבים בשר, ואוהבי בשר הם טורפים, אז רקסי הוא טורף."},
+            { type: "הוראות ושיפוט", question: "מהי התכונה החשובה ביותר לעובד במערכת שירותי בריאות?", options: ["אמפתיה", "אדישות", "כוחניות", "מהירות"], correctAnswer: "אמפתיה", explanation: "אמפתיה ויכולת להבין את המטופל הן תכונות מפתח בתחום הבריאות."},
+            { type: "הוראות ושיפוט", question: "חשב את הסכום של 15 ו-20, וחלק ב-5. אם התוצאה זוגית, לחץ על 'זוגי'. אם היא אי-זוגית, לחץ על 'אי-זוגי'.", options: ["זוגי", "אי-זוגי"], correctAnswer: "אי-זוגי", explanation: "(15+20)/5 = 35/5 = 7. 7 הוא מספר אי-זוגי."},
+            { type: "הוראות ושיפוט", question: "כתוב את המילה 'שלום' מהסוף להתחלה.", options: ["םולש", "שולם", "םשול", "מוש"], correctAnswer: "םולש", explanation: "היפוך האותיות במילה 'שלום' הוא 'םולש'."},
+            { type: "הוראות ושיפוט", question: "לקוח מתלונן על שירות שקיבל מעמית שלך. מה תעשה?", options: ["אומר לו שהוא טועה.", "מצדיק את העמית שלי.", "מתנצל בשם המרפאה ומציע עזרה.", "מפנה אותו למנהל מיד."], correctAnswer: "מתנצל בשם המרפאה ומציע עזרה.", explanation: "לקיחת אחריות ראשונית וניסיון לפתור את הבעיה הן הגישה השירותית הנכונה."},
+            { type: "הוראות ושיפוט", question: "קרא: 'הועדה החליטה לדחות את ההצעה פה אחד.' מה משמעות הביטוי 'פה אחד'?", options: ["ההחלטה התקבלה במהירות", "כולם הצביעו בעד הדחייה", "רק אדם אחד הצביע", "ההצבעה הייתה חשאית"], correctAnswer: "כולם הצביעו בעד הדחייה", explanation: "'פה אחד' פירושו שהייתה הסכמה מלאה בין כל המצביעים."}
+        ];
+
+        const advancedReviewQuestions = [
+             // 15 Analogies
+            { type: "אנלוגיות", question: "פסנתר : קליד", options: ["גיטרה : מיתר", "תופים : מקל", "כינור : קשת", "חליל : נשיפה"], correctAnswer: "גיטרה : מיתר", explanation: "קליד הוא החלק עליו לוחצים כדי להפיק צליל בפסנתר. מיתר הוא החלק עליו פורטים כדי להפיק צליל בגיטרה. האחרים מתארים אביזר חיצוני או פעולה." },
+            { type: "אנלוגיות", question: "צייר : בד", options: ["פסל : אזמל", "סופר : מילים", "מוזיקאי : צלילים", "צלם : מצלמה"], correctAnswer: "סופר : מילים", explanation: "בד הוא המשטח עליו הצייר יוצר. מילים הן 'המשטח' או חומר הגלם המופשט איתו הסופר עובד. צלילים למוזיקאי הוא קשר דומה." },
+            { type: "אנלוגיות", question: "נהג : הגה", options: ["רוכב : כידון", "טייס : כנף", "מלח : עוגן", "טבח : סיר"], correctAnswer: "רוכב : כידון", explanation: "הגה הוא האמצעי שבעזרתו הנהג מנווט. כידון הוא האמצעי שבעזרתו הרוכב מנווט." },
+            { type: "אנלוגיות", question: "קמצן : נדיב", options: ["אמיץ : פחדן", "חכם : טיפש", "שניהם נכונים", "אף אחד לא נכון"], correctAnswer: "שניהם נכונים", explanation: "קמצן ונדיב הם תכונות אופי הפוכות, וכך גם אמיץ ופחדן, וחכם וטיפש." },
+            { type: "אנלוגיות", question: "מים : התאדות", options: ["ברזל : החלדה", "עץ : שריפה", "קרח : המסה", "אש : כביה"], correctAnswer: "ברזל : החלדה", explanation: "התאדות היא תהליך כימי/פיזיקלי טבעי שקורה למים. החלדה היא תהליך כימי טבעי שקורה לברזל." },
+            { type: "אנלוגיות", question: "רוח : תחנת רוח", options: ["שמש : פאנל סולארי", "מים : סכר", "דלק : מנוע", "חשמל : נורה"], correctAnswer: "שמש : פאנל סולארי", explanation: "תחנת רוח ממירה אנרגיית רוח לחשמל. פאנל סולארי ממיר אנרגיית שמש לחשמל. הקשר הוא המרת אנרגיה טבעית." },
+            { type: "אנלוגיות", question: "זיכרון : לשכוח", options: ["ידע : ללמוד", "אהבה : לשנוא", "עושר : לבזבז", "ראייה : לעוור"], correctAnswer: "ראייה : לעוור", explanation: "לשכוח זה לאבד זיכרון. לעוור זה לאבד ראייה. הקשר הוא של אובדן יכולת/תכונה." },
+            { type: "אנלוגיות", question: "מפה : טריטוריה", options: ["תוכנית בניין : בניין", "תפריט : מסעדה", "קטלוג : חנות", "מתכון : עוגה"], correctAnswer: "תוכנית בניין : בניין", explanation: "מפה היא ייצוג סכמטי של טריטוריה. תוכנית בניין היא ייצוג סכמטי של בניין." },
+            { type: "אנלוגיות", question: "דם : עורק", options: ["מים : נהר", "רכבת : מסילה", "מכתב : דואר", "מכונית : כביש"], correctAnswer: "מים : נהר", explanation: "דם זורם בעורק, שהוא נתיב טבעי בגוף. מים זורמים בנהר, שהוא נתיב טבעי בטבע. מסילה וכביש הם מלאכותיים." },
+            { type: "אנלוגיות", question: "ענף : עץ", options: ["גלגל : מכונית", "דף : ספר", "יד : גוף", "כל התשובות נכונות"], correctAnswer: "כל התשובות נכונות", explanation: "כל האפשרויות מתארות קשר של חלק מתוך שלם." },
+            { type: "אנלוגיות", question: "סוד : לגלות", options: ["חידה : לפתור", "בעיה : להתעלם", "אוצר : להחביא", "שאלה : לשאול"], correctAnswer: "חידה : לפתור", explanation: "הפעולה המתאימה לסוד היא גילויו. הפעולה המתאימה לחידה היא פתרונה." },
+            { type: "אנלוגיות", question: "שופט : פסק דין", options: ["רופא : אבחנה", "מורה : ציון", "מהנדס : תכנון", "כל התשובות נכונות"], correctAnswer: "כל התשובות נכונות", explanation: "פסק דין הוא התוצר המקצועי של השופט, כמו שאבחנה היא תוצר של רופא, ציון של מורה ותכנון של מהנדס." },
+            { type: "אנלוגיות", question: "בצורת : גשם", options: ["עוני : כסף", "חושך : אור", "בורות : ידע", "כל התשובות נכונות"], correctAnswer: "כל התשובות נכונות", explanation: "בצורת היא מצב של חוסר בגשם. באופן דומה, עוני הוא חוסר בכסף, חושך הוא חוסר באור ובורות היא חוסר בידע." },
+            { type: "אנלוגיות", question: "לדהור : לרוץ", options: ["לצרוח : לצעוק", "ללכת : לזחול", "לגעת : למשש", "לאכול : לזלול"], correctAnswer: "לצרוח : לצעוק", explanation: "לדהור זה לרוץ מהר מאוד (דרגה גבוהה יותר). לצרוח זה לצעוק חזק מאוד (דרגה גבוהה יותר)." },
+            { type: "אנלוגיות", question: "ארכיפלג : אי", options: ["צביר : כוכב", "יער : עץ", "להקה : זאב", "שרשרת : חוליה"], correctAnswer: "צביר : כוכב", explanation: "ארכיפלג הוא קבוצה של איים. צביר הוא קבוצה של כוכבים." },
+             // 10 Sentence Completion
+            { type: "השלמת משפטים", question: "החשוד -------- בחקירתו, ולכן השוטרים --------.", options: ["שיתף פעולה / שחררו אותו", "שמר על שתיקה / התקשו להתקדם", "הודה / עצרו אותו", "שיקר / האמינו לו"], correctAnswer: "שמר על שתיקה / התקשו להתקדם", explanation: "שתיקת החשוד מקשה על החקירה להתקדם. זהו קשר של סיבה ותוצאה." },
+            { type: "השלמת משפטים", question: "-------- שהיה עייף, הוא -------- לסיים את העבודה.", options: ["למרות / התעקש", "כיוון / נרדם", "אף על פי / ויתר", "מאחר / שכח"], correctAnswer: "למרות / התעקש", explanation: "המילה 'למרות' מצביעה על ניגוד בין העייפות לבין ההתעקשות לסיים את העבודה." },
+            { type: "השלמת משפטים", question: "היה ברור לכולם שהפתרון שלו --------, אך -------- להציע חלופה טובה יותר.", options: ["מושלם / קל היה", "אינו ישים / איש לא הצליח", "גאוני / כולם רצו", "שגוי / הוא מיהר"], correctAnswer: "אינו ישים / איש לא הצליח", explanation: "המילה 'אך' מצביעה על ניגוד. למרות שהפתרון לא היה ישים, איש לא הצליח למצוא פתרון טוב יותר." },
+            { type: "השלמת משפטים", question: "התרופה החדשה -------- יעילה, -------- יש לה תופעות לוואי רבות.", options: ["נחשבת / ואכן", "אינה / ולכן", "אכן / אולם", "יכולה להיות / כי"], correctAnswer: "אכן / אולם", explanation: "'אולם' מציין ניגוד בין יעילות התרופה (חיובי) לבין תופעות הלוואי (שלילי)." },
+            { type: "השלמת משפטים", question: "התנהגותו -------- עוררה -------- בקרב חבריו.", options: ["האדיבה / כעס", "המוזרה / חשד", "הצפויה / הפתעה", "האחראית / אכזבה"], correctAnswer: "המוזרה / חשד", explanation: "התנהגות מוזרה מעוררת באופן טבעי חשד." },
+            { type: "השלמת משפטים", question: "לא זו בלבד שהיא -------- במבחן, היא אף -------- את חברתה.", options: ["נכשלה / עזרה ל", "הצטיינה / סייעה ל", "הצליחה / שכנעה את", "איחרה / הקדימה את"], correctAnswer: "הצטיינה / סייעה ל", explanation: "'לא זו בלבד... היא אף...' מחבר שני דברים חיוביים. הצטיינות ועזרה הן שתי פעולות חיוביות." },
+            { type: "השלמת משפטים", question: "הוויכוח בין השניים הפך -------- כל כך, עד שהיה צורך --------.", options: ["לשקט / לצעוק", "לידידותי / להתנצל", "לסוער / להתערב", "לענייני / לעזוב"], correctAnswer: "לסוער / להתערב", explanation: "כאשר ויכוח הופך סוער, לעיתים יש צורך בהתערבות כדי להרגיע את הרוחות." },
+            { type: "השלמת משפטים", question: "השופטים -------- מהופעתה של המתעמלת, ו-------- לה ציון כמעט מושלם.", options: ["התאכזבו / העניקו", "התרשמו / העניקו", "התעלמו / שללו", "נהנו / החסירו"], correctAnswer: "התרשמו / העניקו", explanation: "התרשמות עמוקה היא הסיבה למתן ציון גבוה." },
+            { type: "השלמת משפטים", question: "המחקר -------- קשר ישיר בין עישון למחלות לב, -------- הרופאים ממליצים בחום להימנע מעישון.", options: ["שלל / אף על פי כן", "מצא / ולכן", "הדגים / למרות זאת", "הפריך / כי"], correctAnswer: "מצא / ולכן", explanation: "מציאת קשר ישיר היא הסיבה להמלצת הרופאים." },
+            { type: "השלמת משפטים", question: "הדרך הייתה -------- ו--------, אך הנוף בסופה היה שווה את המאמץ.", options: ["קצרה / קלה", "ארוכה / מפרכת", "מישורית / נוחה", "מהירה / פשוטה"], correctAnswer: "ארוכה / מפרכת", explanation: "המילה 'אך' מציינת ניגוד בין קושי הדרך (ארוכה ומפרכת) לבין התגמול (הנוף)." },
+             // 15 Number Series
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 2, 6, 12, 20, 30, ?", options: ["42", "40", "38", "44"], correctAnswer: "42", explanation: "ההפרשים הם סדרה של מספרים זוגיים עוקבים: +4, +6, +8, +10, +12." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 1, 2, 5, 10, 17, 26, ?", options: ["35", "37", "39", "41"], correctAnswer: "37", explanation: "ההפרשים הם מספרים אי-זוגיים עוקבים: +1, +3, +5, +7, +9, +11." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 3, 4, 6, 9, 13, ?", options: ["17", "18", "19", "20"], correctAnswer: "18", explanation: "ההפרשים עולים ב-1: +1, +2, +3, +4, +5." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 7, 14, 12, 24, 22, 44, ?", options: ["42", "40", "46", "38"], correctAnswer: "42", explanation: "החוקיות היא: כפול 2, פחות 2, כפול 2, פחות 2..." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 1, 10, 2, 9, 3, 8, 4, ?", options: ["5", "6", "7", "10"], correctAnswer: "7", explanation: "זו סדרה משולבת. סדרה אחת עולה (1,2,3,4) וסדרה שנייה יורדת (10,9,8,7)." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 4, 12, 6, 18, 9, 27, ?", options: ["13.5", "18", "36", "9"], correctAnswer: "13.5", explanation: "החוקיות היא: כפול 3, חלקי 2, כפול 3, חלקי 2..." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 2, 3, 5, 8, 13, 21, ?", options: ["30", "32", "34", "36"], correctAnswer: "34", explanation: "זוהי סדרת פיבונאצ'י. כל מספר הוא סכום שני המספרים שלפניו (13+21=34)." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 1, 5, 2, 6, 3, 7, 4, ?", options: ["8", "5", "9", "6"], correctAnswer: "8", explanation: "זו סדרה כפולה. סדרה אחת היא מספרים עוקבים (1,2,3,4) והשנייה גם היא (5,6,7,8)." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 99, 90, 81, 72, 63, ?", options: ["54", "55", "56", "52"], correctAnswer: "54", explanation: "הסדרה יורדת בקפיצות קבועות של 9." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 2, 4, 16, 256, ?", options: ["512", "1024", "4096", "65536"], correctAnswer: "65536", explanation: "כל מספר הוא הריבוע של המספר שלפניו (2*2=4, 4*4=16, 16*16=256, 256*256=65536)." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 1, 1, 2, 4, 3, 9, 4, 16, 5, ?", options: ["20", "25", "30", "36"], correctAnswer: "25", explanation: "זו סדרה משולבת. סדרה אחת היא מספרים עוקבים (1,2,3,4,5), והשנייה היא הריבוע שלהם (1,4,9,16,25)." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 100, 50, 200, 25, 400, ?", options: ["12.5", "20", "50", "800"], correctAnswer: "12.5", explanation: "זו סדרה כפולה. סדרה אחת יורדת בחלוקה ב-2 (100, 50, 25, 12.5), והשנייה עולה בכפל ב-2 (200, 400, 800)." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 12, 13, 15, 18, 22, 27, ?", options: ["32", "33", "34", "35"], correctAnswer: "33", explanation: "ההפרשים עולים ב-1: +1, +2, +3, +4, +5, +6." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 5, 15, 10, 30, 25, 75, ?", options: ["70", "60", "50", "80"], correctAnswer: "70", explanation: "החוקיות היא: כפול 3, פחות 5, כפול 3, פחות 5..." },
+            { type: "סדרות חשבוניות", question: "השלם את הסדרה: 2, 8, 3, 27, 4, 64, 5, ?", options: ["100", "125", "25", "50"], correctAnswer: "125", explanation: "זו סדרה משולבת. סדרה אחת היא מספרים עוקבים (2,3,4,5), והשנייה היא החזקה השלישית שלהם (8, 27, 64, 125)." },
+             // 10 Word Problems
+            { type: "בעיות מילוליות", question: "מהירותו של רץ היא 10 קמ\"ש. הוא רץ במשך 45 דקות. איזה מרחק עבר?", options: ["10 ק\"מ", "7.5 ק\"מ", "5 ק\"מ", "12.5 ק\"מ"], correctAnswer: "7.5 ק\"מ", explanation: "45 דקות הן 0.75 שעות. המרחק הוא 10 * 0.75 = 7.5 ק\"מ." },
+            { type: "בעיות מילוליות", question: "סכום שלושה מספרים עוקבים הוא 33. מהו המספר הגדול ביותר?", options: ["10", "11", "12", "13"], correctAnswer: "12", explanation: "המספרים הם 10, 11, 12. סכומם 33 והגדול ביניהם הוא 12. אפשר גם לחשב: 33/3=11 (האמצעי), ולכן הגדול הוא 12." },
+            { type: "בעיות מילוליות", question: "קופסה מכילה 20 כדורים, 60% מהם אדומים והשאר כחולים. כמה כדורים כחולים צריך להוסיף כדי שאחוז הכדורים האדומים יהיה 40%?", options: ["5", "10", "15", "20"], correctAnswer: "10", explanation: "בהתחלה יש 12 אדומים ו-8 כחולים. אנחנו רוצים שה-12 האדומים יהיו 40% מסך הכדורים. אם 12 הם 40%, אז 100% הם 30. כלומר, צריך שיהיו 30 כדורים בסך הכל. כיוון שיש כבר 20, צריך להוסיף 10 (כחולים)." },
+            { type: "בעיות מילוליות", question: "עובד מקבל שכר של 50 ש\"ח לשעה. על כל שעה נוספת מעבר ל-8 שעות, הוא מקבל 150% מהשכר הרגיל. אם עבד יום אחד 10 שעות, כמה הרוויח?", options: ["500 ש\"ח", "550 ש\"ח", "575 ש\"ח", "600 ש\"ח"], correctAnswer: "550 ש\"ח", explanation: "על 8 השעות הראשונות הרוויח 8*50=400 ש\"ח. השכר לשעה נוספת הוא 50*1.5=75 ש\"ח. על השעתיים הנוספות הרוויח 2*75=150 ש\"ח. סך הכל: 400+150=550 ש\"ח." },
+            { type: "בעיות מילוליות", question: "לאחר הנחה של 30%, מחיר מוצר הוא 140 ש\"ח. מה היה מחירו המקורי?", options: ["182 ש\"ח", "200 ש\"ח", "210 ש\"ח", "190 ש\"ח"], correctAnswer: "200 ש\"ח", explanation: "140 ש\"ח הם 70% מהמחיר המקורי. כדי למצוא את המחיר המקורי (100%), נחשב: (140 / 70) * 100 = 200." },
+            { type: "בעיות מילוליות", question: "ממוצע גילם של 4 אחים הוא 15. אם גילם של שלושה מהם הוא 10, 12, 20, מה גילו של האח הרביעי?", options: ["16", "17", "18", "19"], correctAnswer: "18", explanation: "סך הגילאים של ארבעתם הוא 4 * 15 = 60. סכום הגילאים של השלושה הידועים הוא 10+12+20 = 42. גילו של הרביעי הוא 60-42=18." },
+            { type: "בעיות מילוליות", question: "מכונית צורכת ליטר דלק לכל 12 ק\"מ. במיכל יש 45 ליטר דלק. המכונית נוסעת מרחק של 300 ק\"מ. כמה ליטר דלק נשארו במיכל?", options: ["15 ליטר", "20 ליטר", "25 ליטר", "30 ליטר"], correctAnswer: "20 ליטר", explanation: "לנסיעה של 300 ק\"מ, המכונית צריכה 300/12 = 25 ליטר דלק. נשארו במיכל 45-25 = 20 ליטר." },
+            { type: "בעיות מילוליות", question: "אם 4 חתולים תופסים 4 עכברים ב-4 דקות, כמה זמן ייקח ל-20 חתולים לתפוס 20 עכברים?", options: ["4 דקות", "20 דקות", "80 דקות", "דקה אחת"], correctAnswer: "4 דקות", explanation: "לפי הנתון, לוקח לחתול אחד 4 דקות לתפוס עכבר אחד. לכן, ל-20 חתולים ייקח 4 דקות לתפוס 20 עכברים (כל אחד תופס את שלו)." },
+            { type: "בעיות מילוליות", question: "לגיל יש פי 2 יותר בולים מלרון. לגיא יש 10 בולים פחות מלגיל. לשלושתם יחד יש 90 בולים. כמה בולים יש לגיא?", options: ["20", "30", "40", "50"], correctAnswer: "30", explanation: "נסמן את מספר הבולים של רון ב-x. לגיל יש 2x, ולגיא 2x-10. המשוואה היא x + 2x + (2x-10) = 90. פתרונה נותן x=20. לגיא יש 2*20-10 = 30 בולים." },
+            { type: "בעיות מילוליות", question: "שטחו של מעגל הוא 16π סמ\"ר. מה היקפו?", options: ["4π ס\"מ", "8π ס\"מ", "16π ס\"מ", "32π ס\"מ"], correctAnswer: "8π ס\"מ", explanation: "נוסחת שטח מעגל היא πr². אם השטח הוא 16π, אז הרדיוס (r) הוא 4 ס\"מ. נוסחת היקף מעגל היא 2πr. ההיקף הוא 2 * π * 4 = 8π ס\"מ." }
+        ];
+
+        // --- Quiz State ---
+        let questions = [];
+        let currentQuestionIndex;
+        let score;
+        let timerInterval;
+        let totalTimerInterval;
+        let timeLeft;
+        let totalTimeElapsed;
+        let sections = [];
+
+        // --- Functions ---
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+        }
+        
+        function mapSections() {
+            sections = [];
+            const sectionNames = new Set();
+            questions.forEach((q, index) => {
+                if (!sectionNames.has(q.type)) {
+                    sectionNames.add(q.type);
+                    sections.push({ name: q.type, startIndex: index });
+                }
+            });
+        }
+
+        function generateSectionNav() {
+            sectionNav.innerHTML = '';
+            sections.forEach(section => {
+                const button = document.createElement('button');
+                button.textContent = section.name;
+                button.dataset.startIndex = section.startIndex;
+                button.dataset.sectionName = section.name;
+                button.classList.add('section-btn', 'py-1', 'px-3', 'rounded-full', 'text-sm', 'bg-gray-200', 'hover:bg-gray-300', 'transition');
+                button.addEventListener('click', () => jumpToSection(section.startIndex));
+                sectionNav.appendChild(button);
+            });
+        }
+        
+        function updateActiveSection() {
+            if (currentQuestionIndex === undefined || !questions[currentQuestionIndex]) return;
+            const currentSectionName = questions[currentQuestionIndex].type;
+            const sectionButtons = document.querySelectorAll('#section-nav .section-btn');
+            sectionButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.sectionName === currentSectionName);
+            });
+        }
+        
+        function jumpToSection(index) {
+            currentQuestionIndex = index;
+            clearInterval(timerInterval);
+            saveProgress();
+            showNextQuestion();
+        }
+
+        function checkForSavedProgress() {
+            const savedProgress = localStorage.getItem(SAVE_KEY);
+            if (savedProgress) {
+                resumePrompt.classList.remove('hidden');
+                startFullTestBtn.parentElement.classList.add('hidden');
+            }
+        }
+        
+        function initializeQuiz(questionSet, mode) {
+            questions = questionSet.map(q => ({...q, timeLimit: 60}));
+            SAVE_KEY = `daparTestProgress_${mode}_v5`;
+            startQuiz(false);
+        }
+
+        function startQuiz(fromSave = false) {
+            if (!fromSave) {
+                currentQuestionIndex = 0;
+                score = 0;
+                totalTimeElapsed = 0;
+                localStorage.removeItem(SAVE_KEY);
+            }
+            mapSections();
+            generateSectionNav();
+            startScreen.classList.add('hidden');
+            resultsScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+            startTotalTimer();
+            showNextQuestion();
+        }
+
+        function startTotalTimer() {
+            clearInterval(totalTimerInterval);
+            totalTimerInterval = setInterval(() => {
+                totalTimeElapsed++;
+                totalTimerDisplay.textContent = `זמן כולל: ${formatTime(totalTimeElapsed)}`;
+            }, 1000);
+        }
+
+        function showNextQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                showResults();
+                return;
+            }
+            
+            resetQuestionState();
+            const question = questions[currentQuestionIndex];
+            
+            questionCounter.textContent = `שאלה ${currentQuestionIndex + 1} / ${questions.length}`;
+            scoreDisplay.textContent = `ניקוד: ${score}`;
+            questionText.innerHTML = question.question.replace(/\n/g, '<br>'); // Use innerHTML for SVG
+            explanationText.innerHTML = question.explanation;
+            updateActiveSection();
+
+            answersContainer.innerHTML = '';
+            question.options.forEach(option => {
+                const button = document.createElement('button');
+                button.innerHTML = option; // Use innerHTML for SVG
+                button.classList.add('answer-btn', 'w-full', 'p-4', 'border-2', 'border-gray-300', 'rounded-lg', 'text-lg', 'bg-white', 'hover:bg-blue-100', 'hover:border-blue-400');
+                button.addEventListener('click', () => selectAnswer(button, option));
+                answersContainer.appendChild(button);
+            });
+            
+            timeLeft = question.timeLimit;
+            startQuestionTimer();
+        }
+        
+        function resetQuestionState() {
+             clearInterval(timerInterval);
+             explanationContainer.classList.add('hidden');
+             nextQuestionBtn.classList.add('hidden');
+             prevQuestionBtn.classList.add('hidden');
+             showAnswerBtn.classList.remove('hidden');
+             skipQuestionBtn.classList.remove('hidden');
+             pauseBtn.classList.remove('hidden');
+        }
+
+        function startQuestionTimer() {
+            timerDisplay.textContent = `זמן נותר: ${timeLeft} ש'`;
+            timerProgress.style.transition = 'none';
+            timerProgress.style.width = '100%';
+            
+            void timerProgress.offsetWidth;
+            
+            timerProgress.style.transition = `width 1s linear`;
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = `זמן נותר: ${timeLeft} ש'`;
+                if (timeLeft >= 0) {
+                    const timeRatio = Math.max(0, timeLeft / questions[currentQuestionIndex].timeLimit);
+                    timerProgress.style.width = `${timeRatio * 100}%`;
+                }
+                if (timeLeft < 0) {
+                    revealAnswer(false);
+                }
+            }, 1000);
+        }
+
+        function saveProgress() {
+            const state = { 
+                currentQuestionIndex, 
+                score, 
+                totalTimeElapsed, 
+                quizType: questions === fullTestQuestions ? 'full' : 'advanced'
+            };
+            localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+        }
+
+        function selectAnswer(button, selectedOption) {
+            clearInterval(timerInterval);
+            const question = questions[currentQuestionIndex];
+            const isCorrect = selectedOption === question.correctAnswer;
+            
+            // For simplicity, we don't track if a question was already answered.
+            // This means score can change if user goes back and re-answers.
+            if (isCorrect) {
+                score++;
+            }
+            scoreDisplay.textContent = `ניקוד: ${score}`;
+            revealAnswer(true, button, isCorrect);
+        }
+        
+        function handleSkipQuestion() {
+            revealAnswer(false, null, false);
+        }
+
+        function revealAnswer(answered, button, isCorrect) {
+            clearInterval(timerInterval);
+            if (button) {
+                 if (isCorrect) button.classList.add('correct');
+                 else button.classList.add('incorrect');
+            }
+            
+            const answerButtons = answersContainer.querySelectorAll('.answer-btn');
+            answerButtons.forEach(btn => {
+                btn.disabled = true;
+                if (btn.innerHTML === questions[currentQuestionIndex].correctAnswer) {
+                   if (!btn.classList.contains('incorrect')) btn.classList.add('correct');
+                }
+            });
+            
+            explanationContainer.classList.remove('hidden');
+            nextQuestionBtn.classList.remove('hidden');
+            if(currentQuestionIndex > 0) prevQuestionBtn.classList.remove('hidden');
+            showAnswerBtn.classList.add('hidden');
+            skipQuestionBtn.classList.add('hidden');
+            pauseBtn.classList.add('hidden');
+        }
+
+        function showResults() {
+            clearInterval(totalTimerInterval);
+            quizScreen.classList.add('hidden');
+            resultsScreen.classList.remove('hidden');
+            scoreText.textContent = `${score} / ${questions.length}`;
+            localStorage.removeItem(SAVE_KEY);
+        }
+        
+        function handleNextQuestion() {
+            currentQuestionIndex++;
+            saveProgress();
+            showNextQuestion();
+        }
+        
+        function handlePrevQuestion() {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                saveProgress();
+                showNextQuestion();
+            }
+        }
+        
+        function resumeSession() {
+            const savedProgress = JSON.parse(localStorage.getItem(SAVE_KEY));
+            if (savedProgress) {
+                if (savedProgress.quizType === 'full') {
+                    questions = fullTestQuestions.map(q => ({...q, timeLimit: 60}));
+                } else {
+                    questions = advancedReviewQuestions.map(q => ({...q, timeLimit: 60}));
+                }
+                SAVE_KEY = `daparTestProgress_${savedProgress.quizType}_v5`;
+
+                currentQuestionIndex = savedProgress.currentQuestionIndex;
+                score = savedProgress.score;
+                totalTimeElapsed = savedProgress.totalTimeElapsed;
+                startQuiz(true);
+            }
+        }
+        
+        function pauseQuiz() {
+            clearInterval(timerInterval);
+            clearInterval(totalTimerInterval);
+            pausedTimeInfo.textContent = `התקדמות: שאלה ${currentQuestionIndex + 1}, זמן כולל: ${formatTime(totalTimeElapsed)}`;
+            pauseOverlay.classList.remove('hidden');
+        }
+        
+        function resumeQuiz() {
+            pauseOverlay.classList.add('hidden');
+            startQuestionTimer();
+            startTotalTimer();
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', checkForSavedProgress);
+
+        startFullTestBtn.addEventListener('click', () => initializeQuiz(fullTestQuestions, 'full'));
+        startAdvancedReviewBtn.addEventListener('click', () => initializeQuiz(advancedReviewQuestions, 'advanced'));
+        
+        restartBtn.addEventListener('click', () => {
+            resultsScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        });
+
+        showAnswerBtn.addEventListener('click', () => revealAnswer(false, null, false));
+        skipQuestionBtn.addEventListener('click', handleSkipQuestion);
+        nextQuestionBtn.addEventListener('click', handleNextQuestion);
+        prevQuestionBtn.addEventListener('click', handlePrevQuestion);
+        resumeBtn.addEventListener('click', resumeSession);
+        
+        startNewBtn.addEventListener('click', () => {
+            localStorage.removeItem(SAVE_KEY);
+            resumePrompt.classList.add('hidden');
+            startFullTestBtn.parentElement.classList.remove('hidden');
+        });
+        
+        pauseBtn.addEventListener('click', pauseQuiz);
+        resumeBtnOverlay.addEventListener('click', resumeQuiz);
+
+    </script>
+</body>
+</html>
+
